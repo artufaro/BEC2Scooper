@@ -1,0 +1,3 @@
+[submodule "libsis"]
+	path = libsis
+	url = https://github.com/BEC-Trento/libsis.git

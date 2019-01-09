@@ -34,7 +34,7 @@ class FileChangeNotifier():
 
         self.observer.schedule(
             self.event_handler, os.path.dirname(self.monitoredfiles[0]))
-        print "Observing the folder: "+os.path.dirname(self.monitoredfiles[0])
+        print("Observing the folder: "+os.path.dirname(self.monitoredfiles[0]))
         self.observer.start()
 
     def setEnabled(self, enabled):
@@ -63,11 +63,10 @@ class FileChangeNotifier():
 #            print files
 
         def on_moved(self, event):
-#            print event
             try:
                 i = self.monitoredfiles.index(event.dest_path)
                 self.hasBeenUpdated[i] = True
-#                print str(i)+" had changed"
+                print(str(i)+" had changed")
                 if all(self.hasBeenUpdated):
                     self.hasBeenUpdated = [False]*len(self.hasBeenUpdated)
                     if self.enabled:
@@ -75,14 +74,15 @@ class FileChangeNotifier():
                         self.callback()
 #                        print "gotcha"
 
-            except ValueError:
+            except ValueError as e:
+                #print(e)
                 pass
 
 
 #%% FOR TESTING
 if __name__ == '__main__':
     def dosmt():
-        print "me"
+        print("me")
 
     d = FileChangeNotifier(os.getcwd(), ['test_0.sis', 'test_1.sis'], dosmt)
     d.setEnabled(True)
@@ -90,7 +90,7 @@ if __name__ == '__main__':
 
     with open(os.path.join(os.getcwd(), 'test_0.sis'), 'w+b') as fid:
         fid.write(b'adhksaljdh')
-    print "1"
+    print("1")
 
     time.sleep(1)
 
