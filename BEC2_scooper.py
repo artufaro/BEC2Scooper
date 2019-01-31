@@ -5,6 +5,7 @@
 
 from filewatch import FileChangeNotifier
 from libsis.libsis import libsis
+from cameras import cameras_db
 import os
 import h5py
 import zprocess
@@ -15,15 +16,24 @@ import numpy as np
 
 ### Full path to incoming image-files
 basedir = '/home/gabriele/sis-fish/'
-monitoredfiles = [os.path.join(basedir, 'test_0.sisRAW'),
-                os.path.join(basedir, 'HamamatsuVert.npy')]
+#monitoredfiles = [os.path.join(basedir, 'test_0.sisRAW'),
+#                os.path.join(basedir, 'HamamatsuVert.npy')]
+
+
+
+#            {'name' = 'HamamatsuVert', 'file' = os.path.join(basedir, 'HamamatsuVert.npy')}]
+cameras_list = [cameras_db['StingrayHorDemag3'], cameras_db['HamamatsuVert'] ]
+
+
+monitoredfiles = [c.files for c in cameras_list]
+print(f'monitoring: {monitoredfiles}' )
 
 #Output file settings
 save_dict = {'save' : True,
             'run_name' : 'data',
             'get_scope': False}
 
-h5path_0 = Path(r'/home/gabriele/img/')
+h5path_0 = Path(r'/backup/img/')
 
 attrs = {}
 attrs['run number'] = 0
@@ -48,20 +58,19 @@ def ShotReady():
     attrs['run time'] = now.isoformat()
     h5filepath = h5path / f"{attrs['sequence_id']}_{attrs['sequence_index']:04d}.h5"
     scooper.make_new_h5file(h5filepath, attrs)
+    
     # -------------------------------------------------------
     # here put whatever data you want in the h5 file
     with h5py.File(h5filepath) as h5file:
-        print('banana')
-        hor_images = np.fromfile(monitoredfiles[0], dtype=np.uint16).reshape((4, 1234, 1624))
-        ver_images = np.load(monitoredfiles[1])
-        print(ver_images.shape)
-        
-        for i, n in enumerate(['atoms', 'probe', 'back1', 'back2']):
-            h5file['data/StingrayHor/{}'.format(n)] = hor_images[i]
-            h5file['data/HamamatsuVert/{}'.format(n)] = ver_images[i]
+        for c in cameras_list:
+            images = c.get_img()
             
+            for i, n in enumerate(['atoms', 'probe', 'back1', 'back2']):
+                h5file[f"data/{c.name}/{n}"] = images[i]
+                #h5file['data/HamamatsuVert/{}'.format(n)] = ver_images[i]
+                
         
-        h5file['data/HamamatsuVert/sis'] = libsis.read_sis(monitoredfiles[1], full_output = True)[0]
+        #h5file['data/HamamatsuVert/sis'] = libsis.read_sis(monitoredfiles[1], full_output = True)[0]
 #
 #        if save_dict['get_scope']:
 #            for scope, name in zip(scopes, scope_names):

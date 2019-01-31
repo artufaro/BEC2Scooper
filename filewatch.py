@@ -66,7 +66,7 @@ class FileChangeNotifier():
             try:
                 i = self.monitoredfiles.index(event.dest_path)
                 self.hasBeenUpdated[i] = True
-                print(str(i)+" had changed")
+                print(event.dest_path+" had changed")
                 if all(self.hasBeenUpdated):
                     self.hasBeenUpdated = [False]*len(self.hasBeenUpdated)
                     if self.enabled:
