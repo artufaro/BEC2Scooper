@@ -5,6 +5,7 @@ Database for camera parameters
 """
 import os
 import numpy as np
+from pathlib import Path
 
 class Camera():
     """
@@ -25,28 +26,28 @@ class Camera():
            print('what should I do?')
 
 
-def StingrayGetImg(files):
-    "supposes a .sisRAW with 4 images"
-    return np.fromfile(files, dtype=np.uint16).reshape((4, 1234, 1624))
+#def StingrayGetImg(files):
+#    "supposes a .sisRAW with 4 images"
+#    return np.fromfile(files, dtype=np.uint16).reshape((4, 1234, 1624))
 
 
 StingrayHor = Camera(name = 'StingrayHor',
-                    files = os.path.abspath('/home/gabriele/sis-fish/test_0.sisRAW'),
+                    files = Path('/home/gabriele/sis-fish/stingray1.npz'),
                     h5group = 'data/StingrayHor',
                     px_size = 4.40,
-                    get_img = StingrayGetImg)
+                    get_img = lambda f : np.load(f))
 
 StingrayHorDemag3 = Camera(name = 'StingrayHorDemag3',
-                            files = os.path.abspath('/home/gabriele/sis-fish/test_0.sisRAW'),
+                            files = Path('/home/gabriele/sis-fish/stingray3.npz'),
                            h5group = "data/StingrayHorDemag3",
                            px_size = 4.40*3.12,
-                           get_img = StingrayGetImg)
+                           get_img = lambda f : np.load(f))
                            
                            
 HamamatsuVert = Camera(name = 'HamamatsuVert',
-                       files = os.path.abspath('/home/gabriele/sis-fish/HamamatsuVert.npy'),
+                       files = Path('/home/gabriele/sis-fish/hamamatsu.npz'),
                        h5group = "data/HamamatsuVert",
-                       px_size = 6.50/2.0,
+                       px_size = 6.50/6.36,
                        get_img = lambda f : np.load(f))
             
 cameras_db = dict([ (cam.name, cam) for cam in [StingrayHor, StingrayHorDemag3, HamamatsuVert]])

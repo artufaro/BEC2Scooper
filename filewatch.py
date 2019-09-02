@@ -61,6 +61,11 @@ class FileChangeNotifier():
             self.monitoredfiles = files
             self.hasBeenUpdated = [False]*len(files)
 #            print files
+        
+#        def on_modified(self, event):
+#            time.sleep(2)
+#            self.on_moved(event)
+#            print(event)
 
         def on_moved(self, event):
             try:
@@ -87,6 +92,14 @@ if __name__ == '__main__':
     d = FileChangeNotifier(os.getcwd(), ['test_0.sis', 'test_1.sis'], dosmt)
     d.setEnabled(True)
     time.sleep(2)
+    
+#    import zerorpc
+#    class Hello():
+#        def __init__(self):
+#            print('hello')
+#            
+#    s = zerorpc.Server(Hello())
+#    s.run()
 
     with open(os.path.join(os.getcwd(), 'test_0.sis'), 'w+b') as fid:
         fid.write(b'adhksaljdh')
