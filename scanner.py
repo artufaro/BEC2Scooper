@@ -9,7 +9,7 @@ import time
 import yaml
 import zerorpc
 import numpy as np
-
+from pyvisa.errors import VisaIOError
 import h5py
 
 import zprocess
@@ -24,7 +24,6 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 #logging.basicConfig(stream=sys.stdout, level=logging.DEBUG) 
 
 from cameras import cameras_db
-cameras_list = [cameras_db['StingrayHor']]#, cameras_db['HamamatsuVert']]
 
 
 class Scooper:
@@ -39,6 +38,7 @@ class Scooper:
         self.json_path = json_path
         self.cameras_list = cameras_list
         self.scopes = []
+        self.bristol_client = None #Yeah hardcoding
 
 
     def remove_h5file(self, filepath):
@@ -85,6 +85,7 @@ class Scooper:
               
         
         self.to_be_kept = save_dict['save']
+        self.get_bristol = save_dict['get_bristol']
         # -------------------------------------------------------
         # prepare path for h5 file
                      
@@ -92,7 +93,8 @@ class Scooper:
             # move to a new folder
             self.sequence_index = new_sequence_index
             self.run_number = 0
-            if self.to_be_kept == False:
+            
+            if self.to_be_kept is False:
                 self.h5dirpath = self.h5path_temp/now.strftime('%Y/%m/%d/')/f"{self.sequence_index:04d}"
             else:
                 self.h5dirpath = self.h5path_0/now.strftime('%Y/%m/%d/')/f"{self.sequence_index:04d}"
@@ -144,25 +146,32 @@ class Scooper:
                 logger.info('runviewer is not ON')
         
         # add new scopes and create clients
-        for scope in save_dict['scopes']:
-            # I know this is ugly
-            if scope['name'] not in [s['name'] for s in self.scopes]:
-                c = zerorpc.Client(scope['address'])
-                scope['client'] = c
-                scope['delayed_trg'] = False
-                self.scopes.append(scope)
-        
-        # arm all the scopes
-        for scope in self.scopes:
-        
-            # if it is not triggered, it means we are still running previous shot
-            if scope['client'].triggered() == False:
-                scope['delayed_trg'] = True
-            else:    
-                scope['client'].arm()
-                logger.info(f"arming scope {scope['name']} at: {scope['address']}")
+        scopes = save_dict['scopes']
 
-    
+#        if not scopes == 'None': # seriously, yaml?!
+#            for scope in scopes:
+#                # I know this is ugly
+#                if scope['name'] not in [s['name'] for s in self.scopes]:
+#                    c = zerorpc.Client(scope['address'])
+#                    scope['client'] = c
+#                    scope['delayed_trg'] = False
+#                    self.scopes.append(scope)
+#        else:
+#            self.scopes = []
+
+#    # arm all the scopes
+#        for scope in self.scopes:
+#            try:
+#                # if it is not triggered, it means we are still running previous shot
+#                if scope['client'].triggered() == False:
+#                    scope['delayed_trg'] = True
+#                else:    
+#                    scope['client'].arm()
+#                    logger.info(f"arming scope {scope['name']} thisat: {scope['address']}")
+#            
+#            except zerorpc.exceptions.LostRemote:
+#                    logger.info(f"can not arm scope {scope['name']}, is unreachable")
+        
     def gather_data(self):
         # -------------------------------------------------------
         # here put whatever data you want in the h5 file
@@ -175,7 +184,7 @@ class Scooper:
             except IndexError:
                 return
             
-            if (now - shot['timestamp']) < 40:
+            if (now - shot['timestamp']) < 30:
                 break
             else:
                 logger.info('Shot expired. Retrying...')
@@ -193,22 +202,43 @@ class Scooper:
                     h5file[f"data/{c.name}/{k}"] = v
             
             # add scope traces
-            for scope in self.scopes:
-                # get_traces waits for the trigger to come
-                path = scope['client'].get_traces()
-                
-                # re-arm the scope if the next shot has started already 
-                if scope['delayed_trg']:
-                    scope['delayed_trg'] = False
-                    scope['client'].arm()
-                    logger.info(f"(delayed) arming scope {scope['name']} at: {scope['address']}")
+#            if len(self.scopes) > 0:
+#                for scope in self.scopes:
+#                    # get_traces waits for the trigger to come
+#                    try:
+#                        path = scope['client'].get_traces(_async=False)
+#                        #result = path.result(timeout=2)
+#                    
+#                    except Exception as e:
+#                        logger.info(f"unable to retrieve data from {scope['name']}")
+#                    # re-arm the scope if the next shot has started already 
+#                    if scope['delayed_trg']:
+#                        scope['delayed_trg'] = False
+#                        scope['client'].arm()
+#                        logger.info(f"(delayed) arming scope {scope['name']} at: {scope['address']}")
+#                        
+#                    # loading a .npz returns a dictionary-like object, but it needs closing!
+#                    try:
+#                        with np.load(scope['filepath']) as data:
+#                            for _name, _array in data.items():
+#                                h5file[f"data/{scope['name']}/{_name}"] = _array
+#                        
+#                        Path.unlink(Path(scope['filepath']))    
+#                    
+#                    except Exception as e:
+#                        logger.info(e)
+#                        logger.info(f"no data from scope {scope['name']}")
+                        
+#             read wavelenght from Bristol
+            if self.get_bristol:
+                if not getattr(self, 'bristol_client', True):
+                    self.bristol_client = zerorpc.Client('tcp://192.168.1.107:6783')
+                try:
+                    wavelength = self.bristol_client.wavelength()
+                    h5file["globals"].attrs['phase_imprint_wl'] = wavelength
+                except Exception as e:
+                    logger.info("can not reach Bristol Wavemeter\n")
                     
-                # loading a .npz returns a dictionary-like object, but it needs closing!
-                with np.load(scope['filepath']) as data:
-                    for _name, _array in data.items():
-                        h5file[f"data/{scope['name']}/{_name}"] = _array
-                    
-
         # -------------------------------------------------------
         # submit to lyse
         with open('settings.yaml') as f:
@@ -304,8 +334,10 @@ if __name__ == '__main__':
     from cameras import cameras_db
 
     # Select which cameras are in use
-    cameras_list = [cameras_db['StingrayHor']]#, cameras_db['HamamatsuVert']]
-
+    cameras_list = [cameras_db['StingrayHor']]
+#    cameras_list = [cameras_db['HamamatsuVert']]
+#    cameras_list = [cameras_db['StingrayHor'], cameras_db['HamamatsuVert']]
+    
     # only the files in monitoredfiles will be watched, and all the rest we assume 
     # to be in place when this are updated. Place only vital files for the experiment
     
